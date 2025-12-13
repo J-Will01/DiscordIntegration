@@ -60,23 +60,37 @@ public class AdvancementMixin {
                         DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(b.build()),INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
                     } else {
                         EmbedBuilder b = Configuration.instance().embedMode.advancementMessage.toEmbed();
-                        b = b.setAuthor(MessageUtilsImpl.formatPlayerName(player), null, avatarURL)
-                                .setDescription(Localization.instance().advancementMessage.replace("%player%",
-                                                ChatFormatting.stripFormatting(MessageUtilsImpl.formatPlayerName(player)))
-                                        .replace("%advName%",
-                                                ChatFormatting.stripFormatting(advancement
-                                                        .display().get()
-                                                        .getTitle()
-                                                        .getString()))
-                                        .replace("%advDesc%",
-                                                ChatFormatting.stripFormatting(advancement
-                                                        .display().get()
-                                                        .getDescription()
-                                                        .getString()))
-                                        .replace("\\n", "\n")
-                                        .replace("%advNameURL%", URLEncoder.encode(ChatFormatting.stripFormatting(advancement.display().get().getTitle().getString()), StandardCharsets.UTF_8))
-                                        .replace("%advDescURL%", URLEncoder.encode(ChatFormatting.stripFormatting(advancement.display().get().getDescription().getString()), StandardCharsets.UTF_8))
-                                );
+                        
+                        // Create placeholders map
+                        String advName = ChatFormatting.stripFormatting(advancement.display().get().getTitle().getString());
+                        String advDesc = ChatFormatting.stripFormatting(advancement.display().get().getDescription().getString());
+                        String playerName = ChatFormatting.stripFormatting(MessageUtilsImpl.formatPlayerName(player));
+                        java.util.Map<String, String> placeholders = new java.util.HashMap<>();
+                        placeholders.put("player", playerName);
+                        placeholders.put("advName", advName);
+                        placeholders.put("advDesc", advDesc);
+                        placeholders.put("advNameURL", URLEncoder.encode(advName, StandardCharsets.UTF_8));
+                        placeholders.put("advDescURL", URLEncoder.encode(advDesc, StandardCharsets.UTF_8));
+                        placeholders.put("uuid", player.getUUID().toString());
+                        placeholders.put("uuid_dashless", player.getUUID().toString().replace("-", ""));
+                        placeholders.put("name", player.getName().getString());
+                        placeholders.put("avatarURL", avatarURL);
+                        placeholders.put("playerColor", String.valueOf(TextColors.generateFromUUID(player.getUUID()).getRGB()));
+                        
+                        // Try to apply custom fields (customTitle/customDescription)
+                        boolean customFieldsApplied = Configuration.instance().embedMode.advancementMessage.applyCustomFields(b, placeholders);
+                        
+                        if (!customFieldsApplied) {
+                            // No custom fields, use default behavior with author and description
+                            b = b.setAuthor(MessageUtilsImpl.formatPlayerName(player), null, avatarURL)
+                                    .setDescription(Localization.instance().advancementMessage.replace("%player%", playerName)
+                                            .replace("%advName%", advName)
+                                            .replace("%advDesc%", advDesc)
+                                            .replace("\\n", "\n")
+                                            .replace("%advNameURL%", placeholders.get("advNameURL"))
+                                            .replace("%advDescURL%", placeholders.get("advDescURL")));
+                        }
+                        
                         DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(b.build()),INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
                     }
                 } else

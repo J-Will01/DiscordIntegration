@@ -84,9 +84,23 @@ public final class DiscordIntegrationMod {
                 if (!Localization.instance().serverStarting.isEmpty() && !Localization.instance().serverStarting.isBlank()) {
                     if (DiscordIntegration.INSTANCE.getChannel() != null) {
                         final MessageCreateData m;
-                        if (Configuration.instance().embedMode.enabled && Configuration.instance().embedMode.startMessages.asEmbed)
-                            m = new MessageCreateBuilder().setEmbeds(Configuration.instance().embedMode.startMessages.toEmbed().setDescription(Localization.instance().serverStarting).build()).build();
-                        else
+                        if (Configuration.instance().embedMode.enabled && Configuration.instance().embedMode.startMessages.asEmbed) {
+                            EmbedBuilder builder = Configuration.instance().embedMode.startMessages.toEmbed();
+                            
+                            // Create placeholders map
+                            java.util.Map<String, String> placeholders = new java.util.HashMap<>();
+                            placeholders.put("msg", Localization.instance().serverStarting);
+                            
+                            // Try to apply custom fields (customTitle/customDescription)
+                            boolean customFieldsApplied = Configuration.instance().embedMode.startMessages.applyCustomFields(builder, placeholders);
+                            
+                            if (!customFieldsApplied) {
+                                // No custom fields, use default behavior with description
+                                builder.setDescription(Localization.instance().serverStarting);
+                            }
+                            
+                            m = new MessageCreateBuilder().setEmbeds(builder.build()).build();
+                        } else
                             m = new MessageCreateBuilder().addContent(Localization.instance().serverStarting).build();
                         
                         DiscordIntegration.startupMessageTime = System.currentTimeMillis();
@@ -123,9 +137,23 @@ public final class DiscordIntegrationMod {
                         if (!Localization.instance().serverStarting.isBlank())
                             if (DiscordIntegration.INSTANCE.getChannel() != null) {
                                 final MessageCreateData m;
-                                if (Configuration.instance().embedMode.enabled && Configuration.instance().embedMode.startMessages.asEmbed)
-                                    m = new MessageCreateBuilder().setEmbeds(Configuration.instance().embedMode.startMessages.toEmbed().setDescription(Localization.instance().serverStarting).build()).build();
-                                else
+                                if (Configuration.instance().embedMode.enabled && Configuration.instance().embedMode.startMessages.asEmbed) {
+                                    EmbedBuilder builder = Configuration.instance().embedMode.startMessages.toEmbed();
+                                    
+                                    // Create placeholders map
+                                    java.util.Map<String, String> placeholders = new java.util.HashMap<>();
+                                    placeholders.put("msg", Localization.instance().serverStarting);
+                                    
+                                    // Try to apply custom fields (customTitle/customDescription)
+                                    boolean customFieldsApplied = Configuration.instance().embedMode.startMessages.applyCustomFields(builder, placeholders);
+                                    
+                                    if (!customFieldsApplied) {
+                                        // No custom fields, use default behavior with description
+                                        builder.setDescription(Localization.instance().serverStarting);
+                                    }
+                                    
+                                    m = new MessageCreateBuilder().setEmbeds(builder.build()).build();
+                                } else
                                     m = new MessageCreateBuilder().addContent(Localization.instance().serverStarting).build();
                                 DiscordIntegration.startupMessageTime = System.currentTimeMillis();
                                 DiscordIntegration.startingMsg = DiscordIntegration.INSTANCE.sendMessageReturns(m, DiscordIntegration.INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
@@ -149,42 +177,91 @@ public final class DiscordIntegrationMod {
             DiscordIntegration.started = new Date().getTime();
             
             // Calculate startup time if we tracked it from the beginning
-            String startupTimeText = "";
+            String startTimeSeconds = "";
+            String startTimeFormatted = "";
             if (DiscordIntegration.startupMessageTime > 0) {
                 long startupTime = DiscordIntegration.started - DiscordIntegration.startupMessageTime;
-                long seconds = startupTime / 1000;
-                long minutes = seconds / 60;
-                seconds = seconds % 60;
+                long totalSeconds = startupTime / 1000;
+                long minutes = totalSeconds / 60;
+                long seconds = totalSeconds % 60;
                 
+                // Raw seconds value (for custom formatting)
+                startTimeSeconds = String.valueOf(totalSeconds);
+                
+                // Formatted version (for convenience)
                 if (minutes > 0) {
-                    startupTimeText = String.format(" (Started in %dm %ds)", minutes, seconds);
+                    startTimeFormatted = String.format("%dm %ds", minutes, seconds);
                 } else {
-                    startupTimeText = String.format(" (Started in %ds)", seconds);
+                    startTimeFormatted = String.format("%ds", seconds);
                 }
             }
             
             if (!Localization.instance().serverStarted.isBlank()) {
-                String finalMessage = Localization.instance().serverStarted + startupTimeText;
+                // Use placeholder replacement instead of appending
+                String messageTemplate = Localization.instance().serverStarted;
+                
+                // Create placeholders map
+                java.util.Map<String, String> placeholders = new java.util.HashMap<>();
+                placeholders.put("msg", Localization.instance().serverStarted);
+                if (!startTimeSeconds.isEmpty()) {
+                    placeholders.put("startTime", startTimeSeconds);  // Raw seconds: "45"
+                    placeholders.put("startupTime", startTimeFormatted);  // Formatted: "45s" or "2m 15s"
+                }
+                
+                // Replace placeholders in the message
+                String finalMessage = de.erdbeerbaerlp.dcintegration.common.util.MessageUtils.replacePlaceholders(
+                    messageTemplate, placeholders);
                 
                 if (DiscordIntegration.startingMsg != null) {
                     if (Configuration.instance().embedMode.enabled && Configuration.instance().embedMode.startMessages.asEmbed) {
                         if (!Configuration.instance().embedMode.startMessages.customJSON.isBlank()) {
-                            // Add startup time to custom JSON if it contains %startupTime% placeholder
-                            String customJson = Configuration.instance().embedMode.startMessages.customJSON.replace("%startupTime%", startupTimeText);
+                            // Replace placeholders in custom JSON
+                            String customJson = Configuration.instance().embedMode.startMessages.customJSON;
+                            for (java.util.Map.Entry<String, String> entry : placeholders.entrySet()) {
+                                customJson = customJson.replace("%" + entry.getKey() + "%", entry.getValue());
+                            }
                             final EmbedBuilder b = Configuration.instance().embedMode.startMessages.toEmbedJson(customJson);
                             DiscordIntegration.startingMsg.thenAccept((a) -> a.editMessageEmbeds(b.build()).queue());
-                        } else
-                            DiscordIntegration.startingMsg.thenAccept((a) -> a.editMessageEmbeds(Configuration.instance().embedMode.startMessages.toEmbed().setDescription(finalMessage).build()).queue());
+                        } else {
+                            // Use custom title/description if set, otherwise use default
+                            EmbedBuilder builder = Configuration.instance().embedMode.startMessages.toEmbed();
+                            
+                            // Try to apply custom fields with placeholders
+                            boolean customApplied = Configuration.instance().embedMode.startMessages.applyCustomFields(builder, placeholders);
+                            
+                            if (!customApplied) {
+                                // No custom fields, use default description with placeholder replacement
+                                builder.setDescription(finalMessage);
+                            }
+                            
+                            DiscordIntegration.startingMsg.thenAccept((a) -> a.editMessageEmbeds(builder.build()).queue());
+                        }
                     } else
                         DiscordIntegration.startingMsg.thenAccept((a) -> a.editMessage(finalMessage).queue());
                 } else {
                     if (Configuration.instance().embedMode.enabled && Configuration.instance().embedMode.startMessages.asEmbed) {
                         if (!Configuration.instance().embedMode.startMessages.customJSON.isBlank()) {
-                            String customJson = Configuration.instance().embedMode.startMessages.customJSON.replace("%startupTime%", startupTimeText);
+                            // Replace placeholders in custom JSON
+                            String customJson = Configuration.instance().embedMode.startMessages.customJSON;
+                            for (java.util.Map.Entry<String, String> entry : placeholders.entrySet()) {
+                                customJson = customJson.replace("%" + entry.getKey() + "%", entry.getValue());
+                            }
                             final EmbedBuilder b = Configuration.instance().embedMode.startMessages.toEmbedJson(customJson);
                             DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(b.build()), INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
-                        } else
-                            DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(Configuration.instance().embedMode.startMessages.toEmbed().setDescription(finalMessage).build()), INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
+                        } else {
+                            // Use custom title/description if set, otherwise use default
+                            EmbedBuilder builder = Configuration.instance().embedMode.startMessages.toEmbed();
+                            
+                            // Try to apply custom fields with placeholders
+                            boolean customApplied = Configuration.instance().embedMode.startMessages.applyCustomFields(builder, placeholders);
+                            
+                            if (!customApplied) {
+                                // No custom fields, use default description with placeholder replacement
+                                builder.setDescription(finalMessage);
+                            }
+                            
+                            DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(builder.build()), INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
+                        }
                     } else
                         DiscordIntegration.INSTANCE.sendMessage(finalMessage, INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
                 }
@@ -227,8 +304,23 @@ public final class DiscordIntegrationMod {
                     if (!Configuration.instance().embedMode.stopMessages.customJSON.isBlank()) {
                         final EmbedBuilder b = Configuration.instance().embedMode.stopMessages.toEmbedJson(Configuration.instance().embedMode.stopMessages.customJSON);
                         DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(b.build()));
-                    } else
-                        DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(Configuration.instance().embedMode.stopMessages.toEmbed().setDescription(Localization.instance().serverStopped).build()));
+                    } else {
+                        EmbedBuilder builder = Configuration.instance().embedMode.stopMessages.toEmbed();
+                        
+                        // Create placeholders map
+                        java.util.Map<String, String> placeholders = new java.util.HashMap<>();
+                        placeholders.put("msg", Localization.instance().serverStopped);
+                        
+                        // Try to apply custom fields (customTitle/customDescription)
+                        boolean customFieldsApplied = Configuration.instance().embedMode.stopMessages.applyCustomFields(builder, placeholders);
+                        
+                        if (!customFieldsApplied) {
+                            // No custom fields, use default behavior with description
+                            builder.setDescription(Localization.instance().serverStopped);
+                        }
+                        
+                        DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(builder.build()));
+                    }
                 } else
                     DiscordIntegration.INSTANCE.sendMessage(Localization.instance().serverStopped);
             DiscordIntegration.INSTANCE.stopThreads();
@@ -245,7 +337,21 @@ public final class DiscordIntegrationMod {
                 if (!Localization.instance().serverCrash.isBlank())
                     try {
                         if (Configuration.instance().embedMode.enabled && Configuration.instance().embedMode.stopMessages.asEmbed) {
-                            DiscordIntegration.INSTANCE.sendMessageReturns(new MessageCreateBuilder().addEmbeds(Configuration.instance().embedMode.stopMessages.toEmbed().setDescription(Localization.instance().serverCrash).build()).build(), DiscordIntegration.INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID)).get();
+                            EmbedBuilder builder = Configuration.instance().embedMode.stopMessages.toEmbed();
+                            
+                            // Create placeholders map
+                            java.util.Map<String, String> placeholders = new java.util.HashMap<>();
+                            placeholders.put("msg", Localization.instance().serverCrash);
+                            
+                            // Try to apply custom fields (customTitle/customDescription)
+                            boolean customFieldsApplied = Configuration.instance().embedMode.stopMessages.applyCustomFields(builder, placeholders);
+                            
+                            if (!customFieldsApplied) {
+                                // No custom fields, use default behavior with description
+                                builder.setDescription(Localization.instance().serverCrash);
+                            }
+                            
+                            DiscordIntegration.INSTANCE.sendMessageReturns(new MessageCreateBuilder().addEmbeds(builder.build()).build(), DiscordIntegration.INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID)).get();
                         } else
                             DiscordIntegration.INSTANCE.sendMessageReturns(new MessageCreateBuilder().setContent(Localization.instance().serverCrash).build(), DiscordIntegration.INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID)).get();
                     } catch (InterruptedException | ExecutionException ignored) {
@@ -282,8 +388,26 @@ public final class DiscordIntegrationMod {
                             );
                             INSTANCE.sendMessage(new DiscordMessage(b.build()),INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
                         } else {
-                            final EmbedBuilder b = Configuration.instance().embedMode.playerLeaveMessages.toEmbed().setAuthor(MessageUtilsImpl.formatPlayerName(player), null, avatarURL)
-                                    .setDescription(Localization.instance().playerLeave.replace("%player%", MessageUtilsImpl.formatPlayerName(player)));
+                            final EmbedBuilder b = Configuration.instance().embedMode.playerLeaveMessages.toEmbed();
+                            
+                            // Create placeholders map
+                            java.util.Map<String, String> placeholders = new java.util.HashMap<>();
+                            placeholders.put("player", MessageUtilsImpl.formatPlayerName(player));
+                            placeholders.put("uuid", player.getUUID().toString());
+                            placeholders.put("uuid_dashless", player.getUUID().toString().replace("-", ""));
+                            placeholders.put("name", player.getName().getString());
+                            placeholders.put("avatarURL", avatarURL);
+                            placeholders.put("playerColor", String.valueOf(TextColors.generateFromUUID(player.getUUID()).getRGB()));
+                            
+                            // Try to apply custom fields (customTitle/customDescription)
+                            boolean customFieldsApplied = Configuration.instance().embedMode.playerLeaveMessages.applyCustomFields(b, placeholders);
+                            
+                            if (!customFieldsApplied) {
+                                // No custom fields, use default behavior with author and description
+                                b.setAuthor(MessageUtilsImpl.formatPlayerName(player), null, avatarURL)
+                                        .setDescription(Localization.instance().playerLeave.replace("%player%", MessageUtilsImpl.formatPlayerName(player)));
+                            }
+                            
                             INSTANCE.sendMessage(new DiscordMessage(b.build()),INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
                         }
                     } else
@@ -308,8 +432,25 @@ public final class DiscordIntegrationMod {
                         INSTANCE.sendMessage(new DiscordMessage(b.build()));
                     } else {
                         final EmbedBuilder b = Configuration.instance().embedMode.playerJoinMessage.toEmbed();
-                        b.setAuthor(MessageUtilsImpl.formatPlayerName(player), null, avatarURL)
-                                .setDescription(Localization.instance().playerJoin.replace("%player%", MessageUtilsImpl.formatPlayerName(player)));
+                        
+                        // Create placeholders map
+                        java.util.Map<String, String> placeholders = new java.util.HashMap<>();
+                        placeholders.put("player", MessageUtilsImpl.formatPlayerName(player));
+                        placeholders.put("uuid", player.getUUID().toString());
+                        placeholders.put("uuid_dashless", player.getUUID().toString().replace("-", ""));
+                        placeholders.put("name", player.getName().getString());
+                        placeholders.put("avatarURL", avatarURL);
+                        placeholders.put("playerColor", String.valueOf(TextColors.generateFromUUID(player.getUUID()).getRGB()));
+                        
+                        // Try to apply custom fields (customTitle/customDescription)
+                        boolean customFieldsApplied = Configuration.instance().embedMode.playerJoinMessage.applyCustomFields(b, placeholders);
+                        
+                        if (!customFieldsApplied) {
+                            // No custom fields, use default behavior with author and description
+                            b.setAuthor(MessageUtilsImpl.formatPlayerName(player), null, avatarURL)
+                                    .setDescription(Localization.instance().playerJoin.replace("%player%", MessageUtilsImpl.formatPlayerName(player)));
+                        }
+                        
                         INSTANCE.sendMessage(new DiscordMessage(b.build()), INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
                     }
                 } else
@@ -396,8 +537,26 @@ public final class DiscordIntegrationMod {
                         EmbedBuilder b = Configuration.instance().embedMode.chatMessages.toEmbed();
                         if (Configuration.instance().embedMode.chatMessages.generateUniqueColors)
                             b = b.setColor(TextColors.generateFromUUID(player.getUUID()));
-                        b = b.setAuthor(MessageUtilsImpl.formatPlayerName(player), null, avatarURL)
-                                .setDescription(text);
+                        
+                        // Create placeholders map
+                        java.util.Map<String, String> placeholders = new java.util.HashMap<>();
+                        placeholders.put("player", MessageUtilsImpl.formatPlayerName(player));
+                        placeholders.put("msg", text);
+                        placeholders.put("uuid", player.getUUID().toString());
+                        placeholders.put("uuid_dashless", player.getUUID().toString().replace("-", ""));
+                        placeholders.put("name", player.getName().getString());
+                        placeholders.put("avatarURL", avatarURL);
+                        placeholders.put("playerColor", String.valueOf(TextColors.generateFromUUID(player.getUUID()).getRGB()));
+                        
+                        // Try to apply custom fields (customTitle/customDescription)
+                        boolean customFieldsApplied = Configuration.instance().embedMode.chatMessages.applyCustomFields(b, placeholders);
+                        
+                        if (!customFieldsApplied) {
+                            // No custom fields, use default behavior with author and description
+                            b = b.setAuthor(MessageUtilsImpl.formatPlayerName(player), null, avatarURL)
+                                    .setDescription(text);
+                        }
+                        
                         DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(b.build()), INSTANCE.getChannel(Configuration.instance().advanced.chatOutputChannelID));
                     }
                 } else

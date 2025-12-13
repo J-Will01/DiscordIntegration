@@ -58,8 +58,26 @@ public class NetworkHandlerMixin {
                         );
                         DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(b.build()),INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
                     } else {
-                        final EmbedBuilder b = Configuration.instance().embedMode.playerLeaveMessages.toEmbed().setAuthor(MessageUtilsImpl.formatPlayerName(player), null, avatarURL)
-                                .setDescription(Localization.instance().playerLeave.replace("%player%", MessageUtilsImpl.formatPlayerName(player)));
+                        final EmbedBuilder b = Configuration.instance().embedMode.playerLeaveMessages.toEmbed();
+                        
+                        // Create placeholders map
+                        java.util.Map<String, String> placeholders = new java.util.HashMap<>();
+                        placeholders.put("player", MessageUtilsImpl.formatPlayerName(player));
+                        placeholders.put("uuid", player.getUUID().toString());
+                        placeholders.put("uuid_dashless", player.getUUID().toString().replace("-", ""));
+                        placeholders.put("name", player.getName().getString());
+                        placeholders.put("avatarURL", avatarURL);
+                        placeholders.put("playerColor", String.valueOf(TextColors.generateFromUUID(player.getUUID()).getRGB()));
+                        
+                        // Try to apply custom fields (customTitle/customDescription)
+                        boolean customFieldsApplied = Configuration.instance().embedMode.playerLeaveMessages.applyCustomFields(b, placeholders);
+                        
+                        if (!customFieldsApplied) {
+                            // No custom fields, use default behavior with author and description
+                            b.setAuthor(MessageUtilsImpl.formatPlayerName(player), null, avatarURL)
+                                    .setDescription(Localization.instance().playerLeave.replace("%player%", MessageUtilsImpl.formatPlayerName(player)));
+                        }
+                        
                         DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(b.build()),INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
                     }
                 } else
@@ -68,9 +86,26 @@ public class NetworkHandlerMixin {
         } else if (DiscordIntegration.INSTANCE != null && DiscordIntegrationMod.timeouts.contains(player.getUUID())) {
             if (!Localization.instance().playerTimeout.isBlank()) {
                 if (Configuration.instance().embedMode.enabled && Configuration.instance().embedMode.playerLeaveMessages.asEmbed) {
-                    final EmbedBuilder b = Configuration.instance().embedMode.playerLeaveMessages.toEmbed()
-                            .setAuthor(MessageUtilsImpl.formatPlayerName(player), null, avatarURL)
-                            .setDescription(Localization.instance().playerTimeout.replace("%player%", MessageUtilsImpl.formatPlayerName(player)));
+                    final EmbedBuilder b = Configuration.instance().embedMode.playerLeaveMessages.toEmbed();
+                    
+                    // Create placeholders map
+                    java.util.Map<String, String> placeholders = new java.util.HashMap<>();
+                    placeholders.put("player", MessageUtilsImpl.formatPlayerName(player));
+                    placeholders.put("uuid", player.getUUID().toString());
+                    placeholders.put("uuid_dashless", player.getUUID().toString().replace("-", ""));
+                    placeholders.put("name", player.getName().getString());
+                    placeholders.put("avatarURL", avatarURL);
+                    placeholders.put("playerColor", String.valueOf(TextColors.generateFromUUID(player.getUUID()).getRGB()));
+                    
+                    // Try to apply custom fields (customTitle/customDescription)
+                    boolean customFieldsApplied = Configuration.instance().embedMode.playerLeaveMessages.applyCustomFields(b, placeholders);
+                    
+                    if (!customFieldsApplied) {
+                        // No custom fields, use default behavior with author and description
+                        b.setAuthor(MessageUtilsImpl.formatPlayerName(player), null, avatarURL)
+                                .setDescription(Localization.instance().playerTimeout.replace("%player%", MessageUtilsImpl.formatPlayerName(player)));
+                    }
+                    
                     DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(b.build()),INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
                 } else
                     DiscordIntegration.INSTANCE.sendMessage(Localization.instance().playerTimeout.replace("%player%", MessageUtilsImpl.formatPlayerName(player)),INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));

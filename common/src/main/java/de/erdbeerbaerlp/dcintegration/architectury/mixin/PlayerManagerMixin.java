@@ -90,8 +90,25 @@ public class PlayerManagerMixin {
                         DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(b.build()));
                     } else {
                         final EmbedBuilder b = Configuration.instance().embedMode.playerJoinMessage.toEmbed();
-                        b.setAuthor(MessageUtilsImpl.formatPlayerName(p), null, avatarURL)
-                                .setDescription(Localization.instance().playerJoin.replace("%player%", MessageUtilsImpl.formatPlayerName(p)));
+                        
+                        // Create placeholders map
+                        java.util.Map<String, String> placeholders = new java.util.HashMap<>();
+                        placeholders.put("player", MessageUtilsImpl.formatPlayerName(p));
+                        placeholders.put("uuid", p.getUUID().toString());
+                        placeholders.put("uuid_dashless", p.getUUID().toString().replace("-", ""));
+                        placeholders.put("name", p.getName().getString());
+                        placeholders.put("avatarURL", avatarURL);
+                        placeholders.put("playerColor", String.valueOf(TextColors.generateFromUUID(p.getUUID()).getRGB()));
+                        
+                        // Try to apply custom fields (customTitle/customDescription)
+                        boolean customFieldsApplied = Configuration.instance().embedMode.playerJoinMessage.applyCustomFields(b, placeholders);
+                        
+                        if (!customFieldsApplied) {
+                            // No custom fields, use default behavior with author and description
+                            b.setAuthor(MessageUtilsImpl.formatPlayerName(p), null, avatarURL)
+                                    .setDescription(Localization.instance().playerJoin.replace("%player%", MessageUtilsImpl.formatPlayerName(p)));
+                        }
+                        
                         DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(b.build()), INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
                     }
                 } else

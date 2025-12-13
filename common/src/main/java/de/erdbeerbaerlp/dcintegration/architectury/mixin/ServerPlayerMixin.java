@@ -53,7 +53,27 @@ public class ServerPlayerMixin {
                         DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(b.build()),INSTANCE.getChannel(Configuration.instance().advanced.deathsChannelID));
                     }else {
                         final EmbedBuilder b = Configuration.instance().embedMode.deathMessage.toEmbed();
-                        b.setDescription(":skull: " + Localization.instance().playerDeath.replace("%player%", MessageUtilsImpl.formatPlayerName(p)).replace("%msg%", ChatFormatting.stripFormatting(deathMessage.getString()).replace(MessageUtilsImpl.formatPlayerName(p) + " ", "")));
+                        
+                        // Create placeholders map
+                        String deathMsg = ChatFormatting.stripFormatting(deathMessage.getString()).replace(MessageUtilsImpl.formatPlayerName(p) + " ", "");
+                        java.util.Map<String, String> placeholders = new java.util.HashMap<>();
+                        placeholders.put("player", MessageUtilsImpl.formatPlayerName(p));
+                        placeholders.put("msg", deathMsg);
+                        placeholders.put("deathMessage", deathMsg);
+                        placeholders.put("uuid", p.getUUID().toString());
+                        placeholders.put("uuid_dashless", p.getUUID().toString().replace("-", ""));
+                        placeholders.put("name", p.getName().getString());
+                        placeholders.put("avatarURL", avatarURL);
+                        placeholders.put("playerColor", String.valueOf(TextColors.generateFromUUID(p.getUUID()).getRGB()));
+                        
+                        // Try to apply custom fields (customTitle/customDescription)
+                        boolean customFieldsApplied = Configuration.instance().embedMode.deathMessage.applyCustomFields(b, placeholders);
+                        
+                        if (!customFieldsApplied) {
+                            // No custom fields, use default behavior with description
+                            b.setDescription(":skull: " + Localization.instance().playerDeath.replace("%player%", MessageUtilsImpl.formatPlayerName(p)).replace("%msg%", deathMsg));
+                        }
+                        
                         if (embed != null) {
                             b.addBlankField(false);
                             b.addField(embed.getTitle() + " *(" + embed.getFooter().getText() + ")*", embed.getDescription(), false);
