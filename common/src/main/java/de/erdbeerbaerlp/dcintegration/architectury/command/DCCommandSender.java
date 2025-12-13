@@ -47,7 +47,7 @@ public class DCCommandSender implements CommandSource {
         }
 
         this.name = Component.literal("@" + tag).withStyle(style ->
-                style.withHoverEvent(new HoverEvent.ShowText(Component.literal(hoverText)))
+                style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(hoverText)))
         );
 
         this.cmdMsg = cmdMsg;

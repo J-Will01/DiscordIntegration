@@ -22,11 +22,11 @@ public class McCommandDiscord {
             l.executes((ctx) -> {
                 MutableComponent base = Component.literal(Configuration.instance().ingameCommand.message);
                 MutableComponent hover = Component.literal(Configuration.instance().ingameCommand.hoverMessage);
-                URI url = URI.create(Configuration.instance().ingameCommand.inviteURL);
+                String urlString = Configuration.instance().ingameCommand.inviteURL;
 
                 MutableComponent full = base.withStyle(style -> style
-                        .withClickEvent(new ClickEvent.OpenUrl(url))
-                        .withHoverEvent(new HoverEvent.ShowText(hover))
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, urlString))
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover))
                 );
 
                 ctx.getSource().sendSuccess(() -> full, false);

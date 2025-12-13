@@ -10,8 +10,8 @@ pluginManagement {
 rootProject.name = 'dcintegration'
 
 include 'common'
-include 'fabric'
-include 'fabric-like'
+//include 'fabric'  // Temporarily disabled - targeting NeoForge 1.21.1
+//include 'fabric-like'  // Temporarily disabled - targeting NeoForge 1.21.1
 //include 'quilt'
 include 'neoforge'
-include 'forge'
+//include 'forge'  // Temporarily disabled - targeting NeoForge 1.21.1
