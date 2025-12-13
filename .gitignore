@@ -1,17 +1,96 @@
-# Project exclude paths
-/.gradle/
-/common/.gradle/
-/common/build/
-/fabric/.gradle/
-/fabric/build/
-/neoforge/.gradle/
-/neoforge/build/
-/.idea/
-/fabric-like/build/
-/fabric-like/.gradle/
-/forge/build/
-/forge/.gradle/
-/build/
-/fabric/run
-/neoforge/run
-/forge/run
+# Gradle
+.gradle/
+build/
+bin/
+out/
+**/.gradle/
+**/build/
+**/bin/
+**/out/
+
+# Loom cache (Fabric/Quilt/NeoForge)
+**/loom-cache/
+**/.loom-cache/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+**/.idea/
+**/*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+debug.log
+**/*.log
+
+# Test results
+test-results/
+build/reports/
+**/build/reports/
+**/test-results/
+
+# Generated files
+build/generated/
+build/tmp/
+build/docs/
+**/build/generated/
+**/build/tmp/
+**/build/docs/
+
+# JAR files (build artifacts - keep sources/javadoc)
+**/build/libs/*.jar
+!**/build/libs/*-sources.jar
+!**/build/libs/*-javadoc.jar
+
+# Minecraft run directories
+**/run/
+**/runClient/
+**/runServer/
+
+# Eclipse
+.metadata/
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+**/.metadata/
+**/bin/
+**/tmp/
+
+# IntelliJ IDEA
+*.iml
+.idea/
+*.iws
+*.ipr
+out/
+**/out/
+
+# VS Code
+.vscode/
+**/.vscode/
+
+# Platform-specific
+fabric/run/
+neoforge/run/
+forge/run/
+quilt/run/
+common/run/
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
