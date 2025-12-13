@@ -59,31 +59,84 @@ public final class DiscordIntegrationMod {
         }
     }
 
-    public static void serverStarting(MinecraftServer minecraftServer) {
-        server = minecraftServer;
-        DiscordIntegration.INSTANCE = new DiscordIntegration(new ServerInterface());
+    /**
+     * Early initialization to send "Server Starting..." message as soon as possible
+     * This is called during FMLDedicatedServerSetupEvent, before ServerStartingEvent
+     */
+    public static void earlyInit() {
         try {
-            //Wait a short time to allow JDA to get initiaized
-            DiscordIntegration.LOGGER.info("Waiting for JDA to initialize to send starting message... (max 5 seconds before skipping)");
+            // Initialize Discord connection early
+            if (DiscordIntegration.INSTANCE == null) {
+                DiscordIntegration.INSTANCE = new DiscordIntegration(new ServerInterface());
+            }
+            
+            // Wait for JDA to initialize and send the starting message
+            DiscordIntegration.LOGGER.info("Initializing Discord connection early to track startup time...");
             for (int i = 0; i <= 5; i++) {
                 if (DiscordIntegration.INSTANCE.getJDA() == null) Thread.sleep(1000);
                 else break;
             }
+            
             if (DiscordIntegration.INSTANCE.getJDA() != null) {
-                Thread.sleep(2000); //Wait for it to cache the channels
-                CommandRegistry.registerDefaultCommands();
-                if (!Localization.instance().serverStarting.isEmpty()) {
-
-                    if (!Localization.instance().serverStarting.isBlank())
-                        if (DiscordIntegration.INSTANCE.getChannel() != null) {
-                            final MessageCreateData m;
-                            if (Configuration.instance().embedMode.enabled && Configuration.instance().embedMode.startMessages.asEmbed)
-                                m = new MessageCreateBuilder().setEmbeds(Configuration.instance().embedMode.startMessages.toEmbed().setDescription(Localization.instance().serverStarting).build()).build();
-                            else
-                                m = new MessageCreateBuilder().addContent(Localization.instance().serverStarting).build();
-                            DiscordIntegration.startingMsg = DiscordIntegration.INSTANCE.sendMessageReturns(m, DiscordIntegration.INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
-                        }
+                Thread.sleep(2000); // Wait for it to cache the channels
+                
+                // Send "Server Starting..." message and record the time
+                if (!Localization.instance().serverStarting.isEmpty() && !Localization.instance().serverStarting.isBlank()) {
+                    if (DiscordIntegration.INSTANCE.getChannel() != null) {
+                        final MessageCreateData m;
+                        if (Configuration.instance().embedMode.enabled && Configuration.instance().embedMode.startMessages.asEmbed)
+                            m = new MessageCreateBuilder().setEmbeds(Configuration.instance().embedMode.startMessages.toEmbed().setDescription(Localization.instance().serverStarting).build()).build();
+                        else
+                            m = new MessageCreateBuilder().addContent(Localization.instance().serverStarting).build();
+                        
+                        DiscordIntegration.startupMessageTime = System.currentTimeMillis();
+                        DiscordIntegration.startingMsg = DiscordIntegration.INSTANCE.sendMessageReturns(m, DiscordIntegration.INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
+                        DiscordIntegration.LOGGER.info("Server Starting message sent to Discord (startup time tracking started)");
+                    }
                 }
+            }
+        } catch (InterruptedException | NullPointerException e) {
+            DiscordIntegration.LOGGER.warn("Early Discord initialization failed, will retry during serverStarting: " + e.getMessage());
+        }
+    }
+
+    public static void serverStarting(MinecraftServer minecraftServer) {
+        server = minecraftServer;
+        
+        // If Discord wasn't initialized early, initialize it now
+        if (DiscordIntegration.INSTANCE == null) {
+            DiscordIntegration.INSTANCE = new DiscordIntegration(new ServerInterface());
+        }
+        
+        try {
+            // If the starting message wasn't sent early, send it now
+            if (DiscordIntegration.startingMsg == null) {
+                //Wait a short time to allow JDA to get initialized
+                DiscordIntegration.LOGGER.info("Waiting for JDA to initialize to send starting message... (max 5 seconds before skipping)");
+                for (int i = 0; i <= 5; i++) {
+                    if (DiscordIntegration.INSTANCE.getJDA() == null) Thread.sleep(1000);
+                    else break;
+                }
+                if (DiscordIntegration.INSTANCE.getJDA() != null) {
+                    Thread.sleep(2000); //Wait for it to cache the channels
+                    if (!Localization.instance().serverStarting.isEmpty()) {
+                        if (!Localization.instance().serverStarting.isBlank())
+                            if (DiscordIntegration.INSTANCE.getChannel() != null) {
+                                final MessageCreateData m;
+                                if (Configuration.instance().embedMode.enabled && Configuration.instance().embedMode.startMessages.asEmbed)
+                                    m = new MessageCreateBuilder().setEmbeds(Configuration.instance().embedMode.startMessages.toEmbed().setDescription(Localization.instance().serverStarting).build()).build();
+                                else
+                                    m = new MessageCreateBuilder().addContent(Localization.instance().serverStarting).build();
+                                DiscordIntegration.startupMessageTime = System.currentTimeMillis();
+                                DiscordIntegration.startingMsg = DiscordIntegration.INSTANCE.sendMessageReturns(m, DiscordIntegration.INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
+                            }
+                    }
+                }
+            }
+            
+            // Register commands
+            if (DiscordIntegration.INSTANCE.getJDA() != null) {
+                CommandRegistry.registerDefaultCommands();
             }
         } catch (InterruptedException | NullPointerException ignored) {
         }
@@ -94,26 +147,48 @@ public final class DiscordIntegrationMod {
         DiscordIntegration.LOGGER.info("Started");
         if (DiscordIntegration.INSTANCE != null) {
             DiscordIntegration.started = new Date().getTime();
-            if (!Localization.instance().serverStarted.isBlank())
+            
+            // Calculate startup time if we tracked it from the beginning
+            String startupTimeText = "";
+            if (DiscordIntegration.startupMessageTime > 0) {
+                long startupTime = DiscordIntegration.started - DiscordIntegration.startupMessageTime;
+                long seconds = startupTime / 1000;
+                long minutes = seconds / 60;
+                seconds = seconds % 60;
+                
+                if (minutes > 0) {
+                    startupTimeText = String.format(" (Started in %dm %ds)", minutes, seconds);
+                } else {
+                    startupTimeText = String.format(" (Started in %ds)", seconds);
+                }
+            }
+            
+            if (!Localization.instance().serverStarted.isBlank()) {
+                String finalMessage = Localization.instance().serverStarted + startupTimeText;
+                
                 if (DiscordIntegration.startingMsg != null) {
                     if (Configuration.instance().embedMode.enabled && Configuration.instance().embedMode.startMessages.asEmbed) {
                         if (!Configuration.instance().embedMode.startMessages.customJSON.isBlank()) {
-                            final EmbedBuilder b = Configuration.instance().embedMode.startMessages.toEmbedJson(Configuration.instance().embedMode.startMessages.customJSON);
+                            // Add startup time to custom JSON if it contains %startupTime% placeholder
+                            String customJson = Configuration.instance().embedMode.startMessages.customJSON.replace("%startupTime%", startupTimeText);
+                            final EmbedBuilder b = Configuration.instance().embedMode.startMessages.toEmbedJson(customJson);
                             DiscordIntegration.startingMsg.thenAccept((a) -> a.editMessageEmbeds(b.build()).queue());
                         } else
-                            DiscordIntegration.startingMsg.thenAccept((a) -> a.editMessageEmbeds(Configuration.instance().embedMode.startMessages.toEmbed().setDescription(Localization.instance().serverStarted).build()).queue());
+                            DiscordIntegration.startingMsg.thenAccept((a) -> a.editMessageEmbeds(Configuration.instance().embedMode.startMessages.toEmbed().setDescription(finalMessage).build()).queue());
                     } else
-                        DiscordIntegration.startingMsg.thenAccept((a) -> a.editMessage(Localization.instance().serverStarted).queue());
+                        DiscordIntegration.startingMsg.thenAccept((a) -> a.editMessage(finalMessage).queue());
                 } else {
                     if (Configuration.instance().embedMode.enabled && Configuration.instance().embedMode.startMessages.asEmbed) {
                         if (!Configuration.instance().embedMode.startMessages.customJSON.isBlank()) {
-                            final EmbedBuilder b = Configuration.instance().embedMode.startMessages.toEmbedJson(Configuration.instance().embedMode.startMessages.customJSON);
+                            String customJson = Configuration.instance().embedMode.startMessages.customJSON.replace("%startupTime%", startupTimeText);
+                            final EmbedBuilder b = Configuration.instance().embedMode.startMessages.toEmbedJson(customJson);
                             DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(b.build()), INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
                         } else
-                            DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(Configuration.instance().embedMode.startMessages.toEmbed().setDescription(Localization.instance().serverStarted).build()), INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
+                            DiscordIntegration.INSTANCE.sendMessage(new DiscordMessage(Configuration.instance().embedMode.startMessages.toEmbed().setDescription(finalMessage).build()), INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
                     } else
-                        DiscordIntegration.INSTANCE.sendMessage(Localization.instance().serverStarted, INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
+                        DiscordIntegration.INSTANCE.sendMessage(finalMessage, INSTANCE.getChannel(Configuration.instance().advanced.serverChannelID));
                 }
+            }
             DiscordIntegration.INSTANCE.startThreads();
         }
         UpdateChecker.runUpdateCheck("https://raw.githubusercontent.com/ErdbeerbaerLP/DiscordIntegration/1.21.1/update-checker.json");

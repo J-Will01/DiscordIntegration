@@ -35,7 +35,9 @@ public final class DiscordIntegrationForge {
         }
     }
     public void serverSetup(FMLDedicatedServerSetupEvent ev) {
-
+        // Initialize Discord connection early to send "Server Starting..." message as soon as possible
+        // This happens before ServerStartingEvent, so we can track the full startup time
+        DiscordIntegrationMod.earlyInit();
     }
     @SubscribeEvent
     public void serverStarting(final ServerStartingEvent ev) {

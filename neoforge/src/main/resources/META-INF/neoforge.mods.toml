@@ -25,13 +25,13 @@ displayTest="IGNORE_SERVER_VERSION"
 modId = "minecraft"
 mandatory = true
 versionRange = "[1.21.1,]"
-ordering = "NONE"
+ordering = "BEFORE"
 side = "SERVER"
 [[dependencies.dcintegration]]
 modId = "neoforge"
 mandatory = true
 versionRange = "[21.1.0,)"
-ordering = "NONE"
+ordering = "BEFORE"
 side = "BOTH"
 
 [[mixins]]
