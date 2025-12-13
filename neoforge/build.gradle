@@ -59,9 +59,24 @@ dependencies {
 
     common(project(path: ':common', configuration: 'namedElements')) { transitive false }
     shadowBundle project(path: ':common', configuration: 'transformProductionNeoForge')
-    modImplementation("de.erdbeerbaerlp:dcintegration.common:$rootProject.core_version")
-    forgeRuntimeLibrary("de.erdbeerbaerlp:dcintegration.common:$rootProject.core_version")
-    shadowBundle("de.erdbeerbaerlp:dcintegration.common:$rootProject.core_version")
+    
+    // Core library dependency - supports both local JAR and Maven
+    def useLocalCore = project.hasProperty('use_local_core') ? project.use_local_core.toBoolean() : false
+    if (useLocalCore) {
+        def coreJar = file(project.hasProperty('local_core_path') ? project.local_core_path : '../DiscordIntegration-Core/build/libs/dcintegration-core-3.1.0.jar')
+        if (!coreJar.exists()) {
+            throw new FileNotFoundException("Local core JAR not found at: ${coreJar.absolutePath}. Please build DiscordIntegration-Core first or check local_core_path in gradle.properties")
+        }
+        println "Using local core JAR: ${coreJar.absolutePath}"
+        modImplementation(files(coreJar))
+        forgeRuntimeLibrary(files(coreJar))
+        shadowBundle(files(coreJar))
+    } else {
+        println "Using Maven core dependency: de.erdbeerbaerlp:dcintegration.common:$rootProject.core_version"
+        modImplementation("de.erdbeerbaerlp:dcintegration.common:$rootProject.core_version")
+        forgeRuntimeLibrary("de.erdbeerbaerlp:dcintegration.common:$rootProject.core_version")
+        shadowBundle("de.erdbeerbaerlp:dcintegration.common:$rootProject.core_version")
+    }
 
     //Dynmap-API
     modCompileOnly('com.github.webbukkit:DynmapCoreAPI:2.5')

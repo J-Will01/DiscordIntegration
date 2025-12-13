@@ -50,7 +50,19 @@ dependencies {
     common(project(path: ':fabric-like', configuration: 'namedElements')) { transitive false }
     shadowBundle project(path: ':fabric-like', configuration: 'transformProductionFabric')
 
-    include "de.erdbeerbaerlp:dcintegration.common:$rootProject.core_version"
+    // Core library dependency - supports both local JAR and Maven
+    def useLocalCore = project.hasProperty('use_local_core') ? project.use_local_core.toBoolean() : false
+    if (useLocalCore) {
+        def coreJar = file(project.hasProperty('local_core_path') ? project.local_core_path : '../DiscordIntegration-Core/build/libs/dcintegration-core-3.1.0.jar')
+        if (!coreJar.exists()) {
+            throw new FileNotFoundException("Local core JAR not found at: ${coreJar.absolutePath}. Please build DiscordIntegration-Core first or check local_core_path in gradle.properties")
+        }
+        println "Using local core JAR: ${coreJar.absolutePath}"
+        shadowBundle(files(coreJar))
+    } else {
+        println "Using Maven core dependency: de.erdbeerbaerlp:dcintegration.common:$rootProject.core_version"
+        include "de.erdbeerbaerlp:dcintegration.common:$rootProject.core_version"
+    }
 
     include(modImplementation("me.lucko:fabric-permissions-api:$rootProject.fabric_permissions_api"))
     modImplementation include("eu.pb4:placeholder-api:$rootProject.placeholder_api")
