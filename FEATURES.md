@@ -356,3 +356,5 @@ If you have questions or need help:
 - Visit the [GitHub Issues](https://github.com/ErdbeerbaerLP/Discord-Chat-Integration/issues)
 - Read the [Wiki](https://wiki.erdbeerbaerlp.de/dcintegration:root)
 
+
+

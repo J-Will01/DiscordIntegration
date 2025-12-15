@@ -49,3 +49,5 @@ local_core_path = ../DiscordIntegration-Core/build/libs/dcintegration-core-3.1.0
 - The build will print which source it's using (local JAR path or Maven coordinates)
 - All platform modules (neoforge, forge, fabric, fabric-like, common) support this feature
 
+
+

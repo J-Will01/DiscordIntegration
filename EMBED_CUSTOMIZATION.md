@@ -383,3 +383,5 @@ Need help? Check:
 - [GitHub Issues](https://github.com/ErdbeerbaerLP/Discord-Chat-Integration/issues)
 - [Wiki](https://wiki.erdbeerbaerlp.de/dcintegration:root)
 
+
+

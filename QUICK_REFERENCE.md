@@ -142,3 +142,5 @@ customDescription = "%player% has joined the server"
 - 📖 [Pattern Matching Guide](MESSAGE_PATTERN_MATCHING.md)
 - 💬 [Discord Server](https://erd.wtf/discord)
 
+
+
